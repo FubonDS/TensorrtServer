@@ -1,5 +1,13 @@
 # TensorrtServer
-
+## Embedding 推論
+![範例圖片](images/embedding/output.png)
+![範例圖片](images/embedding/output1.png)
+## Reranker 推論
+![範例圖片](images/reranker/output.png)
+![範例圖片](images/reranker/output1.png)
+## NLI 推論
+![範例圖片](images/nli/output.png)
+![範例圖片](images/nli/output1.png)
 ## 配置 config.yaml
 ```yaml
 nli_models:
