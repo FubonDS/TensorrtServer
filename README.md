@@ -73,3 +73,31 @@ print(r.json())
 }
 """
 ```
+
+## 使用(openai sdk)
+**僅支援 embedding、rerank模型，nli模型不支援**
+```python
+from openai import OpenAI
+client = OpenAI(
+    api_key="EMPTY",  
+    base_url="http://localhost:8000/v1"
+)
+
+# embedding
+text = "The food was delicious and the waiter was friendly."
+response = client.embeddings.create(
+    input = [text, text],
+    model = "bge-m3"
+)
+
+# reranker
+documents = [
+            "Machine learning is taught best through projects.",
+            "Theory is essential for understanding machine learning.",
+        ]
+response = client.embeddings.create(
+    model = "bge-reranker-large",
+    input = documents,
+    extra_body={"query": "Theory is essential for understanding machine learning."},
+)
+```

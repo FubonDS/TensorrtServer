@@ -89,6 +89,9 @@ async def create_embeddings(request: EmbeddingRequest):
     elif isinstance(request.input, list):
         documents = request.input
 
+    if len(documents) == 0:
+        raise HTTPException(status_code=400, detail="Input text is empty")
+
     response_data = []
     try:
         if request.query is not None:
