@@ -1,9 +1,11 @@
 from typing import Dict, Any
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, Request, HTTPException
 from contextlib import asynccontextmanager
 from typing import Dict, Any, Optional
+from tensorrt_inferencers.schema import EmbeddingRequest
 
 from tensorrt_inferencers import TensorrtBuilder, NLIWorker, RerankerWorker, EmbeddingWorker
 
@@ -36,20 +38,25 @@ for key, lst in available_model_dict.items():
                     model=getattr(builder, model_name)
                )
             WORKERS[model_name] = worker
-print(f"Available models: {list(WORKERS.keys())}")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # start all workers
     for w in WORKERS.values():
         await w.start()
     yield
-    # stop all workers
     for w in WORKERS.values():
         await w.stop()
 
 app = FastAPI(lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.get("/models")
 async def list_models():
@@ -64,3 +71,74 @@ async def infer(model_name: str, request: Request):
     fut = loop.create_future()
     await WORKERS[model_name].queue.put((payload, fut))
     return await fut
+
+@app.post("/v1/embeddings")
+async def create_embeddings(request: EmbeddingRequest):
+    model_name = request.model
+
+    if request.query is not None:
+        # for reranker models
+        if model_name not in available_model_dict.get("reranking_models", []):
+            raise HTTPException(status_code=400, detail=f"Reranking model {model_name} not found")
+    else:
+        if model_name not in available_model_dict.get("embedding_models", []):
+            raise HTTPException(status_code=400, detail=f"Embedding model {model_name} not found")
+        
+    if isinstance(request.input, str):
+        documents = [request.input]
+    elif isinstance(request.input, list):
+        documents = request.input
+
+    response_data = []
+    try:
+        if request.query is not None:
+            payload = {"query": request.query, "documents": documents}
+            loop = asyncio.get_running_loop()
+            fut = loop.create_future()
+            await WORKERS[model_name].queue.put((payload, fut))
+            results = await fut
+            scores = results.scores
+            for idx, score in enumerate(scores):
+                response_data.append(
+                    {
+                        "object": "reranking",
+                        "embedding": float(score),
+                        "index": idx
+                    }
+                )
+            return {
+                "object": "list",
+                "data": response_data,
+                "model": model_name,
+                "usage": {
+                    "prompt_tokens": len(request.query.split()),
+                    "total_tokens": sum(len(t.split()) for t in documents)
+                } 
+            }
+        else:
+            payload = {"documents": documents}
+            loop = asyncio.get_running_loop()
+            fut = loop.create_future()
+            await WORKERS[model_name].queue.put((payload, fut))
+            results = await fut
+            embeddings = results.embeddings
+            for idx, embedding in enumerate(embeddings):
+                response_data.append(
+                    {
+                        "object": "embedding",
+                        "embedding": embedding,
+                        "index": idx,
+                    }
+                )
+            return {
+                "object": "list",
+                "data": response_data,
+                "model": model_name,
+                "usage": {
+                    "prompt_tokens": sum(len(t.split()) for t in documents),
+                    "total_tokens": sum(len(t.split()) for t in documents)
+                }
+            }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+            
