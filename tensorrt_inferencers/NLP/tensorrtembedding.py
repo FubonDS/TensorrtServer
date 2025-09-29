@@ -4,6 +4,8 @@ import pycuda.autoinit
 import pycuda.driver as cuda
 import tensorrt as trt
 
+from transformers import AutoTokenizer
+
 from .baseinferencer import BaseTensorrtInferencer
 
 
@@ -15,6 +17,10 @@ class TensorRTEmbedding(BaseTensorrtInferencer):
         engine_path (str): TensorRT 引擎檔案路徑
         tokenizer_path (str): 分詞器模型名稱或路徑，預設為 "bge-m3-tokenizer"
     """
+    
+    def __init__(self, engine_path: str, tokenizer_path: str = "bge-m3-tokenizer"):
+        super().__init__(engine_path)
+        self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_path, use_fast=True)
     
     
     def infer(self, documents: list[str]):
@@ -36,13 +42,11 @@ class TensorRTEmbedding(BaseTensorrtInferencer):
             self.context.set_input_shape("input_ids", (batch_size, max_length))
             self.context.set_input_shape("attention_mask", (batch_size, max_length))
 
-            self.bindings = {}
-            for name in self.input_names + self.output_names:
-                shape = tuple(self.context.get_tensor_shape(name))
-                dtype = trt.nptype(self.engine.get_tensor_dtype(name))
-                host_mem = cuda.pagelocked_empty(shape, dtype)
-                device_mem = cuda.mem_alloc(host_mem.nbytes)
-                self.bindings[name] = (host_mem, device_mem)
+            self.allocate_buffers({
+                "input_ids": (batch_size, max_length),
+                "attention_mask": (batch_size, max_length),
+            })
+            
         else:
             batch_size = self.max_batch_size
             max_length = self.max_length

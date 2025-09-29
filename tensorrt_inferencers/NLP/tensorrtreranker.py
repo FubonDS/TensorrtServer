@@ -4,10 +4,16 @@ import pycuda.autoinit
 import pycuda.driver as cuda
 import tensorrt as trt
 
+from transformers import AutoTokenizer
+
 from .baseinferencer import BaseTensorrtInferencer
 
 
 class TensorRTReranker(BaseTensorrtInferencer):
+    def __init__(self, engine_path: str, tokenizer_path: str = "bge-m3-tokenizer"):
+        super().__init__(engine_path)
+        self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_path, use_fast=True)
+        
     def infer(self, pairs: list[tuple[str, str]]):
         orig_n = len(pairs)
         if self.dynamic and orig_n > self.max_batch_size:
@@ -26,13 +32,11 @@ class TensorRTReranker(BaseTensorrtInferencer):
             self.context.set_input_shape("input_ids", (batch_size, max_length))
             self.context.set_input_shape("attention_mask", (batch_size, max_length))
 
-            self.bindings = {}
-            for name in self.input_names + self.output_names:
-                shape = tuple(self.context.get_tensor_shape(name))
-                dtype = trt.nptype(self.engine.get_tensor_dtype(name))
-                host_mem = cuda.pagelocked_empty(shape, dtype)
-                device_mem = cuda.mem_alloc(host_mem.nbytes)
-                self.bindings[name] = (host_mem, device_mem)
+            self.allocate_buffers({
+                "input_ids": (batch_size, max_length),
+                "attention_mask": (batch_size, max_length),
+            })
+            
         else:
             batch_size = self.max_batch_size
             max_length = self.max_length

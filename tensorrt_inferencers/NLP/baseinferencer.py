@@ -1,4 +1,5 @@
 import logging
+import os
 from abc import ABC, abstractmethod
 from typing import Any
 import pycuda.autoinit
@@ -8,10 +9,17 @@ from transformers import AutoTokenizer
 
 
 class BaseTensorrtInferencer(ABC):
-    def __init__(self, engine_path: str, tokenizer_path: str = "bge-m3-tokenizer"):
-        self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_path, use_fast=True)
+    def __init__(
+        self, 
+        engine_path: str, 
+        log_level: int = logging.INFO
+    ):
         self.logger = logging.getLogger(f"{self.__class__.__name__}")
+        self.logger.setLevel(log_level)
 
+        if not os.path.exists(engine_path):
+            raise FileNotFoundError(f"[ERROR] Engine file not found: {engine_path}")
+        
         TRT_LOGGER = trt.Logger(trt.Logger.WARNING)
         with open(engine_path, "rb") as f, trt.Runtime(TRT_LOGGER) as runtime:
             self.engine = runtime.deserialize_cuda_engine(f.read())
@@ -42,16 +50,34 @@ class BaseTensorrtInferencer(ABC):
             
         self.bindings = {}
         if not self.dynamic:
-            for name in self.input_names + self.output_names:
-                shape = tuple(self.engine.get_tensor_shape(name))
-                dtype = trt.nptype(self.engine.get_tensor_dtype(name))
-                host_mem = cuda.pagelocked_empty(shape, dtype)
-                device_mem = cuda.mem_alloc(host_mem.nbytes)
-                self.bindings[name] = (host_mem, device_mem)
+            self._allocate_static_buffers()
                 
         self.stream = cuda.Stream()
         self.logger.info(f"[INFO] Model loaded. Dynamic: {self.dynamic}")
+        
+    def _allocate_static_buffers(self):
+        for name in self.input_names + self.output_names:
+            shape = tuple(self.engine.get_tensor_shape(name))
+            dtype = trt.nptype(self.engine.get_tensor_dtype(name))
+            host_mem = cuda.pagelocked_empty(shape, dtype)
+            device_mem = cuda.mem_alloc(host_mem.nbytes)
+            self.bindings[name] = (host_mem, device_mem)
+            
+    def allocate_buffers(self, shape_dict: dict[str, tuple[int, ...]]):
+        self.bindings.clear()
+        
+        for name in self.input_names + self.output_names:
+            if name in shape_dict:
+                shape = shape_dict[name]
+            else:
+                shape = tuple(self.context.get_tensor_shape(name))
+                
+            dtype = trt.nptype(self.engine.get_tensor_dtype(name))
+            host_mem = cuda.pagelocked_empty(shape, dtype)
+            device_mem = cuda.mem_alloc(host_mem.nbytes)
 
+            self.bindings[name] = (host_mem, device_mem)
+        
     @abstractmethod
     def infer(self, *args, **kwargs) -> Any:
         pass

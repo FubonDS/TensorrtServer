@@ -4,11 +4,14 @@ import pycuda.autoinit
 import pycuda.driver as cuda
 import tensorrt as trt
 
+from transformers import AutoTokenizer
+
 from .baseinferencer import BaseTensorrtInferencer
 
 class TensorRTNLI(BaseTensorrtInferencer):
     def __init__(self, engine_path: str, tokenizer_path: str = "joeddav/xlm-roberta-large-xnli"):
-        super().__init__(engine_path, tokenizer_path)
+        super().__init__(engine_path)
+        self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_path, use_fast=True)
         self.labels = ["contradiction", "neutral", "entailment"]
     def infer(self, premises, hypotheses):
         assert len(premises) == len(hypotheses), "premises 與 hypotheses 長度必須一致"
@@ -34,13 +37,11 @@ class TensorRTNLI(BaseTensorrtInferencer):
             self.context.set_input_shape("input_ids", (batch_size, max_length))
             self.context.set_input_shape("attention_mask", (batch_size, max_length))
 
-            self.bindings = {}
-            for name in self.input_names + self.output_names:
-                shape = tuple(self.context.get_tensor_shape(name))
-                dtype = trt.nptype(self.engine.get_tensor_dtype(name))
-                host_mem = cuda.pagelocked_empty(shape, dtype)
-                device_mem = cuda.mem_alloc(host_mem.nbytes)
-                self.bindings[name] = (host_mem, device_mem)
+            self.allocate_buffers({
+                "input_ids": (batch_size, max_length),
+                "attention_mask": (batch_size, max_length),
+            })
+
         else:
             batch_size = self.max_batch_size
             max_length = self.max_length
@@ -76,6 +77,7 @@ class TensorRTNLI(BaseTensorrtInferencer):
 
         self.stream.synchronize()
         elapsed_ms = (time.time() - start) * 1000
+        print(f"Inference time: {elapsed_ms:.2f} ms")
 
         logits = self.bindings[self.output_names[0]][0].reshape(len(premises), -1)
 
