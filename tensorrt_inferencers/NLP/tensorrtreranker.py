@@ -53,8 +53,9 @@ class TensorRTReranker(BaseTensorrtInferencer):
             truncation=True,
             max_length=max_length
         )
-        input_ids = enc["input_ids"].astype(np.int32)
-        attention_mask = enc["attention_mask"].astype(np.int32)
+        
+        input_ids = self._cast_to_engine_dtype("input_ids", enc["input_ids"])
+        attention_mask = self._cast_to_engine_dtype("attention_mask", enc["attention_mask"])
 
         np.copyto(self.bindings["input_ids"][0][:batch_size], input_ids)
         np.copyto(self.bindings["attention_mask"][0][:batch_size], attention_mask)

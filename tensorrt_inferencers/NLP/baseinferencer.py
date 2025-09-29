@@ -1,4 +1,5 @@
 import logging
+import numpy as np
 import os
 from abc import ABC, abstractmethod
 from typing import Any
@@ -86,6 +87,14 @@ class BaseTensorrtInferencer(ABC):
             device_mem = cuda.mem_alloc(host_mem.nbytes)
 
             self.bindings[name] = (host_mem, device_mem)
+            
+    def _cast_to_engine_dtype(self, name: str, array: np.ndarray) -> np.ndarray:
+        expected_dtype = trt.nptype(self.engine.get_tensor_dtype(name))
+        if array.dtype != expected_dtype:
+            self.logger.debug(f"[DEBUG] Casting '{name}' from {array.dtype} -> {expected_dtype}")
+            print(f"[DEBUG] Casting '{name}' from {array.dtype} -> {expected_dtype}")
+            return array.astype(expected_dtype)
+        return array
         
     @abstractmethod
     def infer(self, *args, **kwargs) -> Any:
