@@ -10,8 +10,8 @@ from .baseinferencer import BaseTensorrtInferencer
 
 
 class TensorRTReranker(BaseTensorrtInferencer):
-    def __init__(self, engine_path: str, tokenizer_path: str = "bge-m3-tokenizer"):
-        super().__init__(engine_path)
+    def __init__(self, engine_path: str, tokenizer_path: str = "bge-m3-tokenizer", reuse_dynamic_buffer: bool = True):
+        super().__init__(engine_path, reuse_dynamic_buffer=reuse_dynamic_buffer)
         self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_path, use_fast=True)
         
     def infer(self, pairs: list[tuple[str, str]]):
@@ -32,10 +32,11 @@ class TensorRTReranker(BaseTensorrtInferencer):
             self.context.set_input_shape("input_ids", (batch_size, max_length))
             self.context.set_input_shape("attention_mask", (batch_size, max_length))
 
-            self.allocate_buffers({
-                "input_ids": (batch_size, max_length),
-                "attention_mask": (batch_size, max_length),
-            })
+            if not self.reuse_dynamic_buffer:
+                self.allocate_buffers({
+                    "input_ids": (batch_size, max_length),
+                    "attention_mask": (batch_size, max_length),
+                })
             
         else:
             batch_size = self.max_batch_size
@@ -55,8 +56,8 @@ class TensorRTReranker(BaseTensorrtInferencer):
         input_ids = enc["input_ids"].astype(np.int32)
         attention_mask = enc["attention_mask"].astype(np.int32)
 
-        np.copyto(self.bindings["input_ids"][0], input_ids)
-        np.copyto(self.bindings["attention_mask"][0], attention_mask)
+        np.copyto(self.bindings["input_ids"][0][:batch_size], input_ids)
+        np.copyto(self.bindings["attention_mask"][0][:batch_size], attention_mask)
 
         for name in self.input_names:
             cuda.memcpy_htod_async(self.bindings[name][1], self.bindings[name][0], self.stream)

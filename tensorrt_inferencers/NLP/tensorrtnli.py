@@ -9,8 +9,8 @@ from transformers import AutoTokenizer
 from .baseinferencer import BaseTensorrtInferencer
 
 class TensorRTNLI(BaseTensorrtInferencer):
-    def __init__(self, engine_path: str, tokenizer_path: str = "joeddav/xlm-roberta-large-xnli"):
-        super().__init__(engine_path)
+    def __init__(self, engine_path: str, tokenizer_path: str = "joeddav/xlm-roberta-large-xnli", reuse_dynamic_buffer: bool = True):
+        super().__init__(engine_path, reuse_dynamic_buffer=reuse_dynamic_buffer)
         self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_path, use_fast=True)
         self.labels = ["contradiction", "neutral", "entailment"]
     def infer(self, premises, hypotheses):
@@ -36,11 +36,11 @@ class TensorRTNLI(BaseTensorrtInferencer):
             batch_size = len(premises)
             self.context.set_input_shape("input_ids", (batch_size, max_length))
             self.context.set_input_shape("attention_mask", (batch_size, max_length))
-
-            self.allocate_buffers({
-                "input_ids": (batch_size, max_length),
-                "attention_mask": (batch_size, max_length),
-            })
+            if not self.reuse_dynamic_buffer:
+                self.allocate_buffers({
+                    "input_ids": (batch_size, max_length),
+                    "attention_mask": (batch_size, max_length),
+                })
 
         else:
             batch_size = self.max_batch_size
@@ -60,8 +60,8 @@ class TensorRTNLI(BaseTensorrtInferencer):
         input_ids = enc["input_ids"].astype(np.int32)
         attention_mask = enc["attention_mask"].astype(np.int32)
 
-        np.copyto(self.bindings["input_ids"][0], input_ids)
-        np.copyto(self.bindings["attention_mask"][0], attention_mask)
+        np.copyto(self.bindings["input_ids"][0][:batch_size], input_ids)
+        np.copyto(self.bindings["attention_mask"][0][:batch_size], attention_mask)
 
         for name in self.input_names:
             cuda.memcpy_htod_async(self.bindings[name][1], self.bindings[name][0], self.stream)
@@ -79,7 +79,7 @@ class TensorRTNLI(BaseTensorrtInferencer):
         elapsed_ms = (time.time() - start) * 1000
         print(f"Inference time: {elapsed_ms:.2f} ms")
 
-        logits = self.bindings[self.output_names[0]][0].reshape(len(premises), -1)
+        logits = self.bindings[self.output_names[0]][0][:orig_n].reshape(orig_n, -1)
 
         preds = [self.labels[np.argmax(l)] for l in logits[:orig_n]]
 
