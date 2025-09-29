@@ -1,13 +1,13 @@
-from typing import Dict, Any
 import asyncio
-from concurrent.futures import ThreadPoolExecutor
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi import FastAPI, Request, HTTPException
 from contextlib import asynccontextmanager
-from typing import Dict, Any, Optional
-from tensorrt_inferencers.schema import EmbeddingRequest
+from typing import Any, Dict
 
-from tensorrt_inferencers import TensorrtBuilder, NLIWorker, RerankerWorker, EmbeddingWorker
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
+
+from tensorrt_inferencers import (EmbeddingWorker, NLIWorker, RerankerWorker,
+                                  TensorrtBuilder)
+from tensorrt_inferencers.schema import EmbeddingRequest
 
 CONFIG_PATH = "./configs/config.yaml"
 
@@ -60,7 +60,7 @@ app.add_middleware(
 
 @app.get("/models")
 async def list_models():
-    return {"models": list(WORKERS.keys())}
+    return {"models": available_model_dict}
 
 @app.post("/infer/{model_name}")
 async def infer(model_name: str, request: Request):
