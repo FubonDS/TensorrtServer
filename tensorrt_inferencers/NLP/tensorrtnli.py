@@ -1,12 +1,12 @@
 import time
+
 import numpy as np
 import pycuda.autoinit
 import pycuda.driver as cuda
-import tensorrt as trt
-
 from transformers import AutoTokenizer
 
 from .baseinferencer import BaseTensorrtInferencer
+
 
 class TensorRTNLI(BaseTensorrtInferencer):
     def __init__(self, engine_path: str, tokenizer_path: str = "joeddav/xlm-roberta-large-xnli", reuse_dynamic_buffer: bool = True):

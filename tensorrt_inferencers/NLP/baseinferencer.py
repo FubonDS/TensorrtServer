@@ -1,12 +1,12 @@
 import logging
-import numpy as np
 import os
 from abc import ABC, abstractmethod
 from typing import Any
+
+import numpy as np
 import pycuda.autoinit
 import pycuda.driver as cuda
 import tensorrt as trt
-from transformers import AutoTokenizer
 
 
 class BaseTensorrtInferencer(ABC):
@@ -92,7 +92,6 @@ class BaseTensorrtInferencer(ABC):
         expected_dtype = trt.nptype(self.engine.get_tensor_dtype(name))
         if array.dtype != expected_dtype:
             self.logger.debug(f"[DEBUG] Casting '{name}' from {array.dtype} -> {expected_dtype}")
-            print(f"[DEBUG] Casting '{name}' from {array.dtype} -> {expected_dtype}")
             return array.astype(expected_dtype)
         return array
         

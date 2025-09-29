@@ -1,9 +1,8 @@
 import time
+
 import numpy as np
 import pycuda.autoinit
 import pycuda.driver as cuda
-import tensorrt as trt
-
 from transformers import AutoTokenizer
 
 from .baseinferencer import BaseTensorrtInferencer
