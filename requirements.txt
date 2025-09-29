@@ -1,0 +1,10 @@
+fastapi
+numpy
+pandas
+protobuf
+PyYAML
+sentencepiece
+tiktoken
+tokenizers
+transformers
+uvicorn
