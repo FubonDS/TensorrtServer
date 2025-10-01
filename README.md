@@ -275,6 +275,7 @@ print(scores)
 ### Embedding 推論性能
 ![Embedding 性能圖表](images/embedding/output.png)
 ![Embedding 詳細指標](images/embedding/output1.png)
+![Embedding cuda graph 指標](images/nli/output2.png)
 
 **測試配置**:
 - 模型: BGE-M3

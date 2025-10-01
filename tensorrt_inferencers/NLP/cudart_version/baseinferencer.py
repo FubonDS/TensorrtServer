@@ -33,6 +33,8 @@ class BaseTensorrtInferencer(ABC):
         self.output_names = [self.engine.get_tensor_name(i) for i in range(self.engine.num_io_tensors)
                              if self.engine.get_tensor_mode(self.engine.get_tensor_name(i)) == trt.TensorIOMode.OUTPUT]
 
+        self.graphs: dict[int, Any] = {}
+
         # build bindings and allocate buffers
         self.buffers_host = {}
         self.buffers_device = {}
