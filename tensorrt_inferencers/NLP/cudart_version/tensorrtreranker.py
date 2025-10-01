@@ -119,6 +119,7 @@ class TensorRTReranker(BaseTensorrtInferencer):
 
         start = time.time()
         if batch_size in self.graphs and cuda_graph:
+            self.logger.info(f"[INFO] Using CUDA Graph for batch_size={batch_size}")
             cudart.cudaGraphLaunch(self.graphs[batch_size], self.stream)
         else:
             self.context.execute_async_v3(stream_handle=self.stream)

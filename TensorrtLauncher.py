@@ -1,7 +1,11 @@
+import argparse
 import asyncio
+import logging
+import sys
 from contextlib import asynccontextmanager
 from typing import Any, Dict
 
+import uvicorn
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -9,9 +13,42 @@ from tensorrt_inferencers import (EmbeddingWorker, NLIWorker, RerankerWorker,
                                   TensorrtBuilder)
 from tensorrt_inferencers.schema import EmbeddingRequest
 
+logging.basicConfig(
+    level=logging.INFO,   
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+
 CONFIG_PATH = "./configs/config.yaml"
 
-builder = TensorrtBuilder(CONFIG_PATH)
+def parse_args():
+    parser = argparse.ArgumentParser(description="TensorRT Inference Server")
+    parser.add_argument(
+        "--config",
+        type=str,
+        default="./configs/config.yaml",
+        help="Path to config YAML file"
+    )
+    parser.add_argument(
+        "--host",
+        type=str,
+        default="0.0.0.0",
+        help="Server host"
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=8000,
+        help="Server port"
+    )
+    
+    return parser.parse_args()
+    
+args = parse_args()
+    
+builder = TensorrtBuilder(args.config)
 available_model_dict = builder.model
 
 WORKERS: Dict[str, Any] = {}
@@ -145,3 +182,5 @@ async def create_embeddings(request: EmbeddingRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
             
+if __name__ == "__main__":
+    uvicorn.run(app, host=args.host, port=args.port)

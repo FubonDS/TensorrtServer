@@ -1,1 +1,1 @@
-uvicorn TensorrtLauncher:app --host 0.0.0.0 --port 8000
+python TensorrtLauncher.py --config ./configs/config.yaml --host 0.0.0.0 --port 9000

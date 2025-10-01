@@ -51,18 +51,33 @@ nli_models:
     model_name: "xlm-roberta-large-xnli"
     model_path: "./model/nlimodels/trtmodels/nli_model_dynamic_bs.trt"
     tokenizer_path: "joeddav/xlm-roberta-large-xnli"
+    reuse_dynamic_buffer: true
+    cuda_graph_list:
+      - 1
+      - 3
+      - 5
 
 embedding_models:
   bge-m3:
     model_name: "bge-m3"
     model_path: "./model/embedding_models/trt_models/bge_m3_model_dynamic_bs.trt"
     tokenizer_path: "./model/embedding_models/bge-m3-tokenizer"
+    reuse_dynamic_buffer: true
+    cuda_graph_list:
+      - 1
+      - 3
+      - 5
 
 reranking_models:
   bge-reranker-large:
     model_name: "bge-reranker-large"
     model_path: "./model/reranker_models/trt_models/bge_reranker_large_dynamic_bs.trt"
     tokenizer_path: "./model/reranker_models/bge-reranker-large-tokenizer"
+    reuse_dynamic_buffer: true
+    cuda_graph_list:
+      - 1
+      - 3
+      - 5
 ```
 
 ### 配置說明
@@ -70,6 +85,8 @@ reranking_models:
 - `model_name`: 模型識別名稱
 - `model_path`: TensorRT 模型文件路徑
 - `tokenizer_path`: Tokenizer 路徑（可以是本地路徑或 Hugging Face 模型名稱）
+- `reuse_dynamic_buffer`: 動態 batch size 是否初始化預先分配 buffer，推輪時就不須每次動態分配
+- `cuda_graph_list`: 根據指定 batch size，預先生成一串固定的 GPU kernel 調用，減少 CPU→GPU kernel launch 的 overhead
 
 ## 服務啟動
 
@@ -83,7 +100,7 @@ chmod +x start_tensorrt_server.sh
 ### 方法 2: 直接啟動
 
 ```bash
-uvicorn TensorrtLauncher:app --host 0.0.0.0 --port 8887
+python TensorrtLauncher.py --config ./configs/config.yaml --host 0.0.0.0 --port 9000
 ```
 
 服務啟動後，API 將在 `http://localhost:8887` 上提供服務。
