@@ -5,7 +5,7 @@ from cuda.bindings import runtime as cudart
 from transformers import AutoTokenizer
 
 logger = trt.Logger(trt.Logger.INFO)
-with open("./model/nlimodels/trtmodels/nli_model_dynamic_bs.trt", "rb") as f:
+with open("./nli_models/trt_models/nli_model_dynamic_bs.trt", "rb") as f:
     runtime = trt.Runtime(logger)
     engine = runtime.deserialize_cuda_engine(f.read())
 
@@ -22,7 +22,7 @@ enc = tokenizer(
     padding="max_length", truncation=True, max_length=max_length
 )
 
-batch_size = 32
+batch_size = 8
 context.set_input_shape("input_ids", (batch_size, max_length))
 context.set_input_shape("attention_mask", (batch_size, max_length))
 
@@ -41,7 +41,7 @@ for i in range(engine.num_io_tensors):
     host_buf = np.zeros(shape, dtype=dtype)
     buffers_host[name] = host_buf
 
-    err, dev_ptr = cudart.cudaMalloc(host_buf.nbytes)
+    err, dev_ptr = cudart.cudaMallocAsync(host_buf.nbytes, stream)
     buffers_device[name] = dev_ptr
 
     context.set_tensor_address(name, dev_ptr)

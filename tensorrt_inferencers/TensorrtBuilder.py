@@ -1,9 +1,8 @@
 import yaml
 import logging
-
-from .NLP.tensorrtreranker import TensorRTReranker
-from .NLP.tensorrtnli import TensorRTNLI
-from .NLP.tensorrtembedding import TensorRTEmbedding
+from .NLP.cudart_version.tensorrtreranker import TensorRTReranker
+from .NLP.cudart_version.tensorrtnli import TensorRTNLI
+from .NLP.cudart_version.tensorrtembedding import TensorRTEmbedding
 
 class TensorrtBuilder:
     def __init__(self, config_path: str):

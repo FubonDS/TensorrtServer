@@ -8,3 +8,4 @@ tiktoken
 tokenizers
 transformers
 uvicorn
+cuda-python==12.9.2  #<13.0，根據本地cuda版本選擇

@@ -5,7 +5,7 @@ from cuda.bindings import runtime as cudart
 from transformers import AutoTokenizer
 
 logger = trt.Logger(trt.Logger.INFO)
-with open("./model/nlimodels/trtmodels/nli_model_dynamic_bs.trt", "rb") as f:
+with open("./nli_models/trt_models/nli_model_dynamic_bs.trt", "rb") as f:
     runtime = trt.Runtime(logger)
     engine = runtime.deserialize_cuda_engine(f.read())
 
@@ -22,11 +22,10 @@ enc = tokenizer(
     padding="max_length", truncation=True, max_length=max_length
 )
 
-batch_size = 32
+batch_size = 1
 context.set_input_shape("input_ids", (batch_size, max_length))
 context.set_input_shape("attention_mask", (batch_size, max_length))
 
-bindings = {}
 buffers_host = {}
 buffers_device = {}
 
@@ -40,7 +39,7 @@ for i in range(engine.num_io_tensors):
         shape = tuple(batch_size if d == -1 else d for d in shape)
 
     host_buf = np.zeros(shape, dtype=dtype)
-    err, dev_ptr = cudart.cudaMalloc(host_buf.nbytes)
+    err, dev_ptr = cudart.cudaMallocAsync(host_buf.nbytes, stream)
     assert err == 0, f"cudaMalloc failed for {name}"
 
     buffers_host[name] = host_buf
@@ -96,6 +95,7 @@ err = cudart.cudaMemcpyAsync(
 cudart.cudaStreamSynchronize(stream)
 
 print("Logits shape:", output_host.shape)
+print("row:", output_host)
 print("First row:", output_host[0])
 
 for ptr in buffers_device.values():
