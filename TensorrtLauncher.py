@@ -9,9 +9,9 @@ import uvicorn
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 
-from tensorrt_inferencers import (EmbeddingWorker, NLIWorker, RerankerWorker,
+from engine import (EmbeddingWorker, NLIWorker, RerankerWorker,
                                   TensorrtBuilder)
-from tensorrt_inferencers.schema import EmbeddingRequest
+from engine.schema import EmbeddingRequest
 
 logging.basicConfig(
     level=logging.INFO,   
